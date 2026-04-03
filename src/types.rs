@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::error::OutboxError;
@@ -92,7 +93,7 @@ impl TryFrom<&str> for OrderStatus {
         }
     }
 }
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventType(String);
 
 impl EventType {
@@ -109,10 +110,22 @@ impl EventType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MessageStatus {
     Pending,
     Processing,
     Published,
     Failed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OutboxMessage {
+    pub id: Uuid,
+    pub event_type: EventType,
+    pub payload: serde_json::Value,
+    pub aggregate_id: String,
+    pub status: MessageStatus,
+    pub attempts: i32,
+    pub published_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
 }
