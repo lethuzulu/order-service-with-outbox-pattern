@@ -2,10 +2,9 @@ use uuid::Uuid;
 
 #[derive(Debug, thiserror::Error)]
 pub enum OutboxError {
-
     #[error("invalid amount: must be greater than zero cents")]
     InvalidAmount,
-    
+
     #[error("invalid event type: must not be empty")]
     InvalidEventType,
 
@@ -29,5 +28,4 @@ pub enum OutboxError {
 
     #[error("configuration error: {0}")]
     Config(String),
-
 }
