@@ -20,7 +20,7 @@ impl Money {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize)]
 pub struct OrderId(Uuid);
 
 impl OrderId {

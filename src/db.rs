@@ -9,6 +9,7 @@ use crate::{
     },
 };
 
+#[derive(Debug, Clone)]
 pub struct Db {
     pool: PgPool,
 }
