@@ -20,7 +20,7 @@ impl Money {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct OrderId(Uuid);
 
 impl OrderId {
@@ -86,13 +86,25 @@ impl TryFrom<&str> for OrderStatus {
     type Error = OutboxError;
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         match s {
-            "pending" => Ok(Self::Pending),
+            "pending"   => Ok(Self::Pending),
             "confirmed" => Ok(Self::Confirmed),
             "cancelled" => Ok(Self::Cancelled),
-            _ => Err(OutboxError::Config(format!("unknown order status: {s}"))),
+            _           => Err(OutboxError::Config(format!("unknown order status: {s}"))),
         }
     }
 }
+
+impl std::fmt::Display for OrderStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            OrderStatus::Pending    => "pending",
+            OrderStatus::Confirmed  => "confirmed",
+            OrderStatus::Cancelled  => "cancelled",
+        };
+        write!(f, "{s}")
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventType(String);
 
@@ -116,7 +128,7 @@ impl std::fmt::Display for EventType {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MessageStatus {
     Pending,
     Processing,
@@ -132,6 +144,7 @@ pub struct OutboxMessage {
     pub aggregate_id: String,
     pub status: MessageStatus,
     pub attempts: i32,
+    pub last_error: Option<String>,
     pub published_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
 }

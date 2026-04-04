@@ -11,7 +11,7 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct Db {
-    pool: PgPool,
+    pub pool: PgPool,
 }
 
 impl Db {
@@ -29,7 +29,6 @@ impl Db {
     {
         let tx = self.pool.begin().await?;
         let (result, tx) = f(tx).await?;
-
         tx.commit().await?;
         Ok(result)
     }
@@ -42,17 +41,23 @@ impl Db {
         amount: Money,
     ) -> Result<OrderId, OutboxError> {
         self.with_transaction(|mut tx| async {
+            let order_id = Db::insert_order(&mut tx, customer_id, amount).await?;
 
-        let order_id = Db::insert_order(&mut tx, customer_id, amount).await?;
+            Db::insert_outbox_message(
+                &mut tx,
+                &EventType::new("order.created")?,
+                json!({
+                    "order_id":    order_id.as_uuid(),
+                    "customer_id": customer_id.as_uuid(),
+                    "amount":      amount.cents(),
+                }),
+                &order_id.to_string(),
+            )
+            .await?;
 
-        Db::insert_outbox_message(&mut tx,
-            &EventType::new("order.created")?, 
-            json!({"order_id": order_id.as_uuid(), "customer_id": customer_id.as_uuid(), "amount": amount.cents()}), 
-            &order_id.to_string()
-        ).await?;
-
-        Ok((order_id, tx))
-        }).await
+            Ok((order_id, tx))
+        })
+        .await
     }
 
     pub async fn insert_order(
@@ -67,7 +72,7 @@ impl Db {
             RETURNING id
             "#,
             customer_id.as_uuid(),
-            amount.cents()
+            amount.cents(),
         )
         .fetch_one(&mut **tx)
         .await?;
@@ -161,6 +166,7 @@ impl Db {
                     aggregate_id: r.aggregate_id,
                     status: MessageStatus::Processing,
                     attempts: r.attempts,
+                    last_error: None,
                     published_at: None,
                     created_at: r.created_at,
                 })
@@ -188,9 +194,9 @@ impl Db {
         sqlx::query!(
             r#"
             UPDATE outbox_messages
-            SET    status       = 'failed',
-                   last_error   = $1,
-                   locked_until = NULL
+            SET    status        = 'failed',
+                   last_error    = $1,
+                   locked_until  = NULL
             WHERE  id = $2
             "#,
             error,
@@ -199,5 +205,67 @@ impl Db {
         .execute(&self.pool)
         .await?;
         Ok(())
+    }
+}
+
+
+impl Db {
+    pub async fn count_orders(&self) -> Result<i64, OutboxError> {
+        let n = sqlx::query_scalar!("SELECT COUNT(*) FROM orders")
+            .fetch_one(&self.pool)
+            .await?
+            .unwrap_or(0);
+        Ok(n)
+    }
+
+    pub async fn count_outbox_by_status(&self, status: &str) -> Result<i64, OutboxError> {
+        let n = sqlx::query_scalar!(
+            "SELECT COUNT(*) FROM outbox_messages WHERE status = $1",
+            status
+        )
+        .fetch_one(&self.pool)
+        .await?
+        .unwrap_or(0);
+        Ok(n)
+    }
+
+    pub async fn latest_outbox_message(&self) -> Result<Option<OutboxMessage>, OutboxError> {
+        let row = sqlx::query!(
+            r#"
+            SELECT id, event_type, payload, aggregate_id, status,
+                   attempts, last_error, published_at, created_at
+            FROM   outbox_messages
+            ORDER  BY created_at DESC
+            LIMIT  1
+            "#
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+
+        row.map(|r| {
+            let status = match r.status.as_str() {
+                "pending"    => MessageStatus::Pending,
+                "processing" => MessageStatus::Processing,
+                "published"  => MessageStatus::Published,
+                "failed"     => MessageStatus::Failed,
+                other => {
+                    return Err(OutboxError::Config(format!(
+                        "unknown message status: {other}"
+                    )))
+                }
+            };
+            Ok(OutboxMessage {
+                id: r.id,
+                event_type: EventType::new(r.event_type)?,
+                payload: r.payload,
+                aggregate_id: r.aggregate_id,
+                status,
+                attempts: r.attempts,
+                last_error: r.last_error,
+                published_at: r.published_at,
+                created_at: r.created_at,
+            })
+        })
+        .transpose()
     }
 }
