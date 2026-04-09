@@ -33,6 +33,26 @@ services:
       timeout: 5s
       retries: 5
 
+  app:
+    build:
+      context: .
+      target: runtime
+    container_name: outbox-app
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://postgres:password@postgres:5432/order-service-outbox
+      AMQP_URL: amqp://guest:guest@rabbitmq:5672/%2f
+      RUST_LOG: order_service_with_outbox_pattern=info,tower_http=info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles:
+      - app
+
 volumes:
   outbox_postgres_data:
   outbox_rabbitmq_data:

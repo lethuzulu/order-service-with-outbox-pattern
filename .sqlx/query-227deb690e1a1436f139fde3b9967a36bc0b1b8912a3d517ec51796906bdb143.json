@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE outbox_messages\n            SET    status       = 'processing',\n                   attempts     = attempts + 1,\n                   locked_until = now() + ($1 || ' seconds')::interval\n            WHERE  id IN (\n                SELECT id FROM outbox_messages\n                WHERE  status = 'pending'\n                AND    (locked_until IS NULL OR locked_until < now())\n                ORDER  BY created_at\n                LIMIT  $2\n                FOR UPDATE SKIP LOCKED\n            )\n            RETURNING id, event_type, payload, aggregate_id, attempts, created_at\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "event_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "payload",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 3,
+        "name": "aggregate_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "attempts",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "227deb690e1a1436f139fde3b9967a36bc0b1b8912a3d517ec51796906bdb143"
+}

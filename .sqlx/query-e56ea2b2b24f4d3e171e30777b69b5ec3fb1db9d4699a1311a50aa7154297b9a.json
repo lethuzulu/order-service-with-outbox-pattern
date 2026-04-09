@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE outbox_messages\n            SET    status        = 'failed',\n                   last_error    = $1,\n                   locked_until  = NULL\n            WHERE  id = $2\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e56ea2b2b24f4d3e171e30777b69b5ec3fb1db9d4699a1311a50aa7154297b9a"
+}
