@@ -1,10 +1,11 @@
-use axum::{Json, Router, extract::State, routing::post};
+use axum::{Json, Router, extract::State, routing::{get, post}};
 use order_service_with_outbox_pattern::{
     db::Db,
     error::OutboxError,
     poller::{Poller, PollerConfig},
     publisher::Publisher,
-    types::{CustomerId, Money},
+    service::OrderService,
+    types::{CustomerId, Money, OrderId},
 };
 use std::{net::SocketAddr, sync::Arc};
 use tokio::sync::watch;
@@ -23,6 +24,8 @@ async fn main() -> anyhow::Result<()> {
     let amqp_url = std::env::var("AMQP_URL").expect("AMQP_URL must be set");
 
     let db = Db::new(&database_url).await?;
+    db.migrate().await?;
+
     let publisher = Arc::new(Publisher::connect(&amqp_url, "orders").await?);
 
     let (shutdown_tx, shutdown_rx) = watch::channel(false);
@@ -38,9 +41,12 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
+    let service = OrderService::new(db);
+
     let app = Router::new()
         .route("/orders", post(create_order_handler))
-        .with_state(db);
+        .route("/orders/:id", get(get_order_handler))
+        .with_state(service);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     let listener = tokio::net::TcpListener::bind(addr).await?;
@@ -69,15 +75,32 @@ struct CreateOrderRequest {
 }
 
 async fn create_order_handler(
-    State(db): State<Db>,
+    State(service): State<OrderService>,
     Json(req): Json<CreateOrderRequest>,
 ) -> Result<Json<serde_json::Value>, OutboxError> {
     let customer_id = CustomerId::from_uuid(req.customer_id);
     let amount = Money::from_cents(req.amount)?;
 
-    let order_id = db.create_order(customer_id, amount).await?;
+    let order_id = service.create_order(customer_id, amount).await?;
 
     tracing::info!(%order_id, "order created");
 
     Ok(Json(serde_json::json!({ "order_id": order_id })))
+}
+
+async fn get_order_handler(
+    State(service): State<OrderService>,
+    axum::extract::Path(id): axum::extract::Path<uuid::Uuid>,
+) -> Result<Json<serde_json::Value>, OutboxError> {
+    let order_id = OrderId::from_uuid(id);
+    match service.get_order(order_id).await? {
+        Some(order) => Ok(Json(serde_json::json!({
+            "order_id":    order.id,
+            "customer_id": order.customer_id,
+            "amount":      order.amount.cents(),
+            "status":      order.status.to_string(),
+            "created_at":  order.created_at,
+        }))),
+        None => Err(OutboxError::OrderNotFound(id)),
+    }
 }

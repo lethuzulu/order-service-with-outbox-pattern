@@ -16,11 +16,11 @@ async fn setup() -> Db {
 
     // Clean state between tests
     sqlx::query("DELETE FROM outbox_messages")
-        .execute(&db.pool)
+        .execute(db.pool())
         .await
         .unwrap();
     sqlx::query("DELETE FROM orders")
-        .execute(&db.pool)
+        .execute(db.pool())
         .await
         .unwrap();
 
@@ -83,7 +83,7 @@ async fn the_dual_write_gap_is_visible_naively_and_closed_by_outbox() {
         Uuid::new_v4(),
         1000i64,
     )
-    .execute(&db.pool)
+    .execute(db.pool())
     .await
     .unwrap();
 
@@ -96,7 +96,7 @@ async fn the_dual_write_gap_is_visible_naively_and_closed_by_outbox() {
     );
 
     sqlx::query("DELETE FROM orders")
-        .execute(&db.pool)
+        .execute(db.pool())
         .await
         .unwrap();
 

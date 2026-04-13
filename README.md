@@ -181,6 +181,26 @@ The response returns as soon as the transaction commits. The `order.created` eve
 
 ---
 
+### Get an order
+
+```
+GET /orders/:id
+```
+
+**Response `200`**
+
+```json
+{
+  "order_id":    "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "customer_id": "a0000000-0000-0000-0000-000000000001",
+  "amount":      2999,
+  "status":      "pending",
+  "created_at":  "2026-04-13T10:00:00Z"
+}
+```
+
+---
+
 ## Running Locally
 
 ### Prerequisites
@@ -337,3 +357,4 @@ Copy `.env.example` to `.env` to get started.
 | Async runtime | [Tokio](https://tokio.rs) |
 | Logging | [tracing](https://github.com/tokio-rs/tracing) + tracing-subscriber (JSON) |
 | Container | Docker (multi-stage, distroless runtime) |
+| CI | GitHub Actions |

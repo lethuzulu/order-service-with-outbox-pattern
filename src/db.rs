@@ -1,5 +1,5 @@
 use serde_json::json;
-use sqlx::{PgPool, Postgres, Transaction};
+use sqlx::{PgPool, Postgres, Transaction, postgres::PgPoolOptions};
 use uuid::Uuid;
 
 use crate::{
@@ -11,13 +11,28 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct Db {
-    pub pool: PgPool,
+    pool: PgPool,
 }
 
 impl Db {
     pub async fn new(database_url: &str) -> Result<Self, OutboxError> {
-        let pool = PgPool::connect(database_url).await?;
+        let pool = PgPoolOptions::new()
+            .max_connections(10)
+            .connect(database_url)
+            .await?;
         Ok(Self { pool })
+    }
+
+    pub fn pool(&self) -> &PgPool {
+        &self.pool
+    }
+
+    pub async fn migrate(&self) -> Result<(), OutboxError> {
+        sqlx::migrate!("./migrations")
+            .run(&self.pool)
+            .await
+            .map_err(|e| OutboxError::Database(e.into()))?;
+        Ok(())
     }
 }
 
