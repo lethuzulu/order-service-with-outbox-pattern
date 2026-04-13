@@ -86,10 +86,10 @@ impl TryFrom<&str> for OrderStatus {
     type Error = OutboxError;
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         match s {
-            "pending"   => Ok(Self::Pending),
+            "pending" => Ok(Self::Pending),
             "confirmed" => Ok(Self::Confirmed),
             "cancelled" => Ok(Self::Cancelled),
-            _           => Err(OutboxError::Config(format!("unknown order status: {s}"))),
+            _ => Err(OutboxError::Config(format!("unknown order status: {s}"))),
         }
     }
 }
@@ -97,9 +97,9 @@ impl TryFrom<&str> for OrderStatus {
 impl std::fmt::Display for OrderStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            OrderStatus::Pending    => "pending",
-            OrderStatus::Confirmed  => "confirmed",
-            OrderStatus::Cancelled  => "cancelled",
+            OrderStatus::Pending => "pending",
+            OrderStatus::Confirmed => "confirmed",
+            OrderStatus::Cancelled => "cancelled",
         };
         write!(f, "{s}")
     }

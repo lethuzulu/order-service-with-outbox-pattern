@@ -3,7 +3,7 @@ use order_service_with_outbox_pattern::{
     db::Db,
     error::OutboxError,
     poller::{Poller, PollerConfig},
-    publisher::{Publisher},
+    publisher::Publisher,
     types::{CustomerId, Money},
 };
 use std::{net::SocketAddr, sync::Arc};

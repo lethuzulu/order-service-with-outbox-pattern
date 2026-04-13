@@ -208,7 +208,6 @@ impl Db {
     }
 }
 
-
 impl Db {
     pub async fn count_orders(&self) -> Result<i64, OutboxError> {
         let n = sqlx::query_scalar!("SELECT COUNT(*) FROM orders")
@@ -244,14 +243,14 @@ impl Db {
 
         row.map(|r| {
             let status = match r.status.as_str() {
-                "pending"    => MessageStatus::Pending,
+                "pending" => MessageStatus::Pending,
                 "processing" => MessageStatus::Processing,
-                "published"  => MessageStatus::Published,
-                "failed"     => MessageStatus::Failed,
+                "published" => MessageStatus::Published,
+                "failed" => MessageStatus::Failed,
                 other => {
                     return Err(OutboxError::Config(format!(
                         "unknown message status: {other}"
-                    )))
+                    )));
                 }
             };
             Ok(OutboxMessage {
